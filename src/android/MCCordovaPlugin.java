@@ -31,6 +31,8 @@ public class MCCordovaPlugin extends CordovaPlugin {
     private static final String ACTION_ENABLE_PUSH = "enablePush";
     private static final String ACTION_DISABLE_PUSH = "disablePush";
     private static final String ACTION_IS_PUSH_ENABLED = "isPushEnabled";
+    private static final String ACTION_ENABLE_GEOFENCE = "enableGeofence";
+    private static final String ACTION_DISABLE_GEOFENCE = "disableGeofence";
     private static final String ACTION_SET_ATTRIBUTE = "setAttribute";
     private static final String ACTION_CLEAR_ATTRIBUTE = "clearAttribute";
     private static final String ACTION_GET_ATTRIBUTES = "getAttributes";
@@ -55,6 +57,10 @@ public class MCCordovaPlugin extends CordovaPlugin {
                 return handleDisablePush(callbackContext);
             case ACTION_IS_PUSH_ENABLED:
                 return handleIsPushEnabled(callbackContext);
+            case ACTION_ENABLE_GEOFENCE:
+                return handleEnableGeofence(callbackContext);
+            case ACTION_DISABLE_GEOFENCE:
+                return handleDisableGeofence(callbackContext);
             case ACTION_SET_ATTRIBUTE:
                 return handleSetAttribute(callbackContext, args);
             case ACTION_CLEAR_ATTRIBUTE:
@@ -115,8 +121,43 @@ public class MCCordovaPlugin extends CordovaPlugin {
             MarketingCloudSdk.requestSdk(new MarketingCloudSdk.WhenReadyListener() {
                 @Override
                 public void ready(MarketingCloudSdk marketingCloudSdk) {
+                    /*
+                    * If your application targets API >= 23 then you will need to perform a runtime permission check
+                    * before calling `enableGeofenceMessaging.`
+                    * https://developer.android.com/training/permissions/requesting.html
+                    */
                     marketingCloudSdk.getPushMessageManager().enablePush();
                     callbackContext.success(); // TODO sendPluginResult w/isPushEnabled like handleIsPushEnabled() and update UI
+                }
+            });
+        } catch (Exception e) {
+            return caughtException(callbackContext, e);
+        }
+        return true;
+    }
+
+    private boolean handleEnableGeofence(final CallbackContext callbackContext) {
+        try {
+            MarketingCloudSdk.requestSdk(new MarketingCloudSdk.WhenReadyListener() {
+                @Override
+                public void ready(MarketingCloudSdk marketingCloudSdk) {
+                    marketingCloudSdk.getRegionMessageManager().enableGeofenceMessaging();
+                    callbackContext.success();
+                }
+            });
+        } catch (Exception e) {
+            return caughtException(callbackContext, e);
+        }
+        return true;
+    }
+
+    private boolean handleDisableGeofence(final CallbackContext callbackContext) {
+        try {
+            MarketingCloudSdk.requestSdk(new MarketingCloudSdk.WhenReadyListener() {
+                @Override
+                public void ready(MarketingCloudSdk marketingCloudSdk) {
+                    marketingCloudSdk.getRegionMessageManager().disableGeofenceMessaging();
+                    callbackContext.success();
                 }
             });
         } catch (Exception e) {

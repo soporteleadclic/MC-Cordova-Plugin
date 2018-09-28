@@ -24,6 +24,14 @@ module.exports = {
       cordova.exec(successCallback, errorCallback, "MCCordovaPlugin", "isPushEnabled", []);
   },
 
+  //geofence
+  enableGeofence: function(successCallback, errorCallback) {
+    cordova.exec(successCallback, errorCallback, "MCCordovaPlugin", "enableGeofence", []);
+  },
+  disableGeofence: function(successCallback, errorCallback) {
+    cordova.exec(successCallback, errorCallback, "MCCordovaPlugin", "disableGeofence", []);
+  },
+
   //Get system token.
   getSystemToken: function(successCallback, errorCallback) {
       cordova.exec(successCallback, errorCallback, "MCCordovaPlugin", "getSystemToken", []);

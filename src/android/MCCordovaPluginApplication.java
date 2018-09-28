@@ -36,6 +36,7 @@ public class MCCordovaPluginApplication extends Application {
                 .setGcmSenderId(getString(R.string.GCMSENDERID))
                 .setAnalyticsEnabled(etAnalyticsEnabled)
                 .setNotificationChannelName(String.valueOf(R.string.CHANNELNAME))
+                .setGeofencingEnabled(true) //Enable Geofence messaging, default = false
                 .build(), new MarketingCloudSdk.InitializationListener() {
             @Override public void complete(InitializationStatus status) {
 
