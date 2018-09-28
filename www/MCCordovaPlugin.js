@@ -1,3 +1,5 @@
+console.log('MC Plugin Leadclic Version')
+
 var exec = require('cordova/exec');
 
 module.exports = {
