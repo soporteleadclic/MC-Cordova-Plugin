@@ -45,6 +45,16 @@
     [[MarketingCloudSDK sharedInstance] sfmc_setPushEnabled:NO];
 }
 
+#pragma mark - Geofence
+
+- (void)enableGeofence:(CDVInvokedUrlCommand*)command {
+    [[MarketingCloudSDK sharedInstance] sfmc_startWatchingLocation];
+}
+
+- (void)disableGeofence:(CDVInvokedUrlCommand*)command {
+    [[MarketingCloudSDK sharedInstance] sfmc_stopWatchingLocation];
+}
+
 #pragma mark - Attributes
 
 - (void)setAttribute:(CDVInvokedUrlCommand*)command {

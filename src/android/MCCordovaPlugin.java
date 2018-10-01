@@ -121,11 +121,6 @@ public class MCCordovaPlugin extends CordovaPlugin {
             MarketingCloudSdk.requestSdk(new MarketingCloudSdk.WhenReadyListener() {
                 @Override
                 public void ready(MarketingCloudSdk marketingCloudSdk) {
-                    /*
-                    * If your application targets API >= 23 then you will need to perform a runtime permission check
-                    * before calling `enableGeofenceMessaging.`
-                    * https://developer.android.com/training/permissions/requesting.html
-                    */
                     marketingCloudSdk.getPushMessageManager().enablePush();
                     callbackContext.success(); // TODO sendPluginResult w/isPushEnabled like handleIsPushEnabled() and update UI
                 }
@@ -141,6 +136,11 @@ public class MCCordovaPlugin extends CordovaPlugin {
             MarketingCloudSdk.requestSdk(new MarketingCloudSdk.WhenReadyListener() {
                 @Override
                 public void ready(MarketingCloudSdk marketingCloudSdk) {
+                    /*
+                    * If your application targets API >= 23 then you will need to perform a runtime permission check
+                    * before calling `enableGeofenceMessaging.`
+                    * https://developer.android.com/training/permissions/requesting.html
+                    */
                     marketingCloudSdk.getRegionMessageManager().enableGeofenceMessaging();
                     callbackContext.success();
                 }
