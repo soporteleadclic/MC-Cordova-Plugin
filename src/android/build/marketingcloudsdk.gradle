@@ -18,6 +18,7 @@ repositories {
 
 dependencies {
     implementation 'com.salesforce.marketingcloud:marketingcloudsdk:6.0.+'
+    implementation 'com.google.android.gms:play-services-location:15.0.1'
 }
 
 ext.cdvPluginPostBuildExtras += {

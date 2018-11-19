@@ -215,8 +215,25 @@ var MCCordovaPlugin = {
         argsCheck.checkArgs(
             'FF', `${PLUGIN_NAME}.disableVerboseLogging`, arguments);
         _exec(successCallback, errorCallback, 'disableVerboseLogging');
+    },
+    /**
+     * Enables geofence in the native Marketing Cloud SDK.
+     * @param  {function} [successCallback]
+     * @param  {function} [errorCallback]
+     */
+    enableGeofence: function(successCallback, errorCallback) {
+        argsCheck.checkArgs('FF', `${PLUGIN_NAME}.enableGeofence`, arguments);
+        _exec(successCallback, errorCallback, 'enableGeofence');
+    },
+    /**
+     * Enables geofence in the native Marketing Cloud SDK.
+     * @param  {function} [successCallback]
+     * @param  {function} [errorCallback]
+     */
+    disableGeofence: function(successCallback, errorCallback) {
+        argsCheck.checkArgs('FF', `${PLUGIN_NAME}.disableGeofence`, arguments);
+        _exec(successCallback, errorCallback, 'disableGeofence');
     }
-
 };
 
 module.exports = MCCordovaPlugin;
