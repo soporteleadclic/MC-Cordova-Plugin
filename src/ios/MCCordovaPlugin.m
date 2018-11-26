@@ -27,8 +27,11 @@
 
 #import "MCCordovaPlugin.h"
 #import "MarketingCloudSDK/MarketingCloudSDK.h"
+#import <CoreLocation/CoreLocation.h>
 
 @implementation MCCordovaPlugin
+
+static CLLocationManager *locationManager;
 
 - (void)pluginInitialize {
     if ([MarketingCloudSDK sharedInstance] == nil) {
@@ -36,6 +39,7 @@
         os_log_error(OS_LOG_DEFAULT, "Failed to access the MarketingCloudSDK");
     } else {
         NSDictionary *pluginSettings = self.commandDelegate.settings;
+        locationManager = [[CLLocationManager alloc] init];
 
         MarketingCloudSDKConfigBuilder *configBuilder = [MarketingCloudSDKConfigBuilder new];
         [configBuilder
@@ -48,6 +52,10 @@
         BOOL analytics =
             [[pluginSettings objectForKey:@"com.salesforce.marketingcloud.analytics"] boolValue];
         [configBuilder sfmc_setAnalyticsEnabled:[NSNumber numberWithBool:analytics]];
+
+        // Se activa el geofence
+        BOOL location =  [[pluginSettings objectForKey:@"com.salesforce.marketingcloud.location"] boolValue];
+        [configBuilder sfmc_setLocationEnabled:[NSNumber numberWithBool:location]];
 
         NSString *tse =
             [pluginSettings objectForKey:@"com.salesforce.marketingcloud.tenant_specific_endpoint"];
@@ -62,6 +70,7 @@
             [self setDelegate];
             [[MarketingCloudSDK sharedInstance] sfmc_addTag:@"Cordova"];
             [self requestPushPermission];
+            
         } else if (configError != nil) {
             os_log_debug(OS_LOG_DEFAULT, "%@", configError);
         }
@@ -121,6 +130,16 @@
     [[MarketingCloudSDK sharedInstance] sfmc_setDebugLoggingEnabled:NO];
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
                                 callbackId:command.callbackId];
+}
+
+- (void) getSDKState:(CDVInvokedUrlCommand *)command {
+    [self.commandDelegate runInBackground:^ {
+        NSString* SDKState = [[MarketingCloudSDK sharedInstance] sfmc_getSDKState];
+        
+        [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                             messageAsString:SDKState]
+                                callbackId:command.callbackId];
+    }];
 }
 
 - (void)getSystemToken:(CDVInvokedUrlCommand *)command {
@@ -226,6 +245,30 @@
         sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
                                             messageAsArray:(arrayTags != nil) ? arrayTags : @[]]
               callbackId:command.callbackId];
+}
+
+- (void)enableGeofence:(CDVInvokedUrlCommand *)command {
+    // Se pide permiso de acceso a la localización
+    locationManager.delegate = self;
+    [locationManager requestAlwaysAuthorization];
+
+    CLAuthorizationStatus status = [CLLocationManager authorizationStatus];
+    if ([CLLocationManager authorizationStatus] == kCLAuthorizationStatusAuthorizedAlways) {
+        [[MarketingCloudSDK sharedInstance] sfmc_startWatchingLocation];
+    } else {
+        os_log_info(OS_LOG_DEFAULT, "Authorized for location always = NO. Geofence notifications will not work");
+    }
+    //}
+
+    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
+                                callbackId:command.callbackId];
+}
+
+- (void)disableGeofence:(CDVInvokedUrlCommand *)command {
+    [[MarketingCloudSDK sharedInstance] sfmc_stopWatchingLocation];
+
+    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
+                                callbackId:command.callbackId];
 }
 
 @end

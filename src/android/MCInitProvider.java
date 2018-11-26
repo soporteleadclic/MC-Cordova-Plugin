@@ -51,7 +51,7 @@ public class MCInitProvider extends ContentProvider
     if (ctx != null) {
       MarketingCloudConfig.Builder builder = MCSdkConfig.prepareConfigBuilder(ctx);
       if (builder != null) {
-        MarketingCloudSdk.init(ctx, builder.setGeofencingEnabled(true).build(ctx), this);
+        MarketingCloudSdk.init(ctx, builder.build(ctx), this);
       }
     }
     return false;

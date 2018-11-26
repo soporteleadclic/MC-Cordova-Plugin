@@ -79,6 +79,10 @@ var MCCordovaPlugin = {
         argsCheck.checkArgs('FF', `${PLUGIN_NAME}.disablePush`, arguments);
         _exec(successCallback, errorCallback, 'disablePush');
     },
+    getSDKState: function(successCallback, errorCallback) {
+        argsCheck.checkArgs('fF', `${PLUGIN_NAME}.getSDKState`, arguments);
+        _exec(successCallback, errorCallback, 'getSDKState');
+    },
     /**
      * Returns the token used by the Marketing Cloud to send push messages to
      * the device.
