@@ -237,6 +237,15 @@ var MCCordovaPlugin = {
     disableGeofence: function(successCallback, errorCallback) {
         argsCheck.checkArgs('FF', `${PLUGIN_NAME}.disableGeofence`, arguments);
         _exec(successCallback, errorCallback, 'disableGeofence');
+    },
+    /**
+     * Asks for location permission
+     * @param  {function} [successCallback]
+     * @param  {function} [errorCallback]
+     */
+    askForLocationPermissions: function(successCallback, errorCallback) {
+        argsCheck.checkArgs('FF', `${PLUGIN_NAME}.askForLocationPermissions`, arguments);
+        _exec(successCallback, errorCallback, 'askForLocationPermissions');
     }
 };
 

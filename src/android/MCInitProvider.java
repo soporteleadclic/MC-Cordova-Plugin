@@ -42,6 +42,14 @@ import com.salesforce.marketingcloud.MarketingCloudConfig;
 import com.salesforce.marketingcloud.MarketingCloudSdk;
 import com.salesforce.marketingcloud.registration.RegistrationManager;
 import java.util.Set;
+import com.salesforce.marketingcloud.notifications.NotificationCustomizationOptions;
+import com.salesforce.marketingcloud.notifications.NotificationManager;
+import com.salesforce.marketingcloud.notifications.NotificationMessage;
+import com.amrest.latagliatella.R.drawable;
+import com.amrest.latagliatella.R;
+import android.support.v4.app.NotificationCompat;
+import android.graphics.Color;
+
 
 public class MCInitProvider extends ContentProvider
     implements MarketingCloudSdk.InitializationListener {
@@ -51,7 +59,29 @@ public class MCInitProvider extends ContentProvider
     if (ctx != null) {
       MarketingCloudConfig.Builder builder = MCSdkConfig.prepareConfigBuilder(ctx);
       if (builder != null) {
-        MarketingCloudSdk.init(ctx, builder.build(ctx), this);
+        MarketingCloudSdk.init(ctx, builder
+        .setNotificationCustomizationOptions(
+          NotificationCustomizationOptions.create(new NotificationManager.NotificationBuilder() {
+            @NonNull @Override
+            public NotificationCompat.Builder setupNotificationBuilder(@NonNull Context context,
+                @NonNull NotificationMessage notificationMessage) {
+              NotificationCompat.Builder builder =
+                  NotificationManager.getDefaultNotificationBuilder(
+                      context,
+                      notificationMessage,
+                      NotificationManager.createDefaultNotificationChannel(context),
+                      R.drawable.ic_notification
+                  );
+
+                //builder.setColor(0xffff0000);
+                builder.setLights(0xffff0000, 500, 2000);
+                builder.setColor(Color.parseColor("#8c1713"));
+                
+              return builder;
+            }
+          })
+        )
+        .build(ctx), this);
       }
     }
     return false;

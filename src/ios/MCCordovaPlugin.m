@@ -248,24 +248,25 @@ static CLLocationManager *locationManager;
 }
 
 - (void)enableGeofence:(CDVInvokedUrlCommand *)command {
-    // Se pide permiso de acceso a la localización
-    locationManager.delegate = self;
-    [locationManager requestAlwaysAuthorization];
-
-    CLAuthorizationStatus status = [CLLocationManager authorizationStatus];
-    if ([CLLocationManager authorizationStatus] == kCLAuthorizationStatusAuthorizedAlways) {
-        [[MarketingCloudSDK sharedInstance] sfmc_startWatchingLocation];
-    } else {
-        os_log_info(OS_LOG_DEFAULT, "Authorized for location always = NO. Geofence notifications will not work");
-    }
-    //}
-
+    [[MarketingCloudSDK sharedInstance] sfmc_startWatchingLocation];
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
                                 callbackId:command.callbackId];
 }
 
 - (void)disableGeofence:(CDVInvokedUrlCommand *)command {
     [[MarketingCloudSDK sharedInstance] sfmc_stopWatchingLocation];
+
+    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
+                                callbackId:command.callbackId];
+}
+
+- (void)askForLocationPermissions:(CDVInvokedUrlCommand *)command {
+    // Se pide permiso de acceso a la localización
+    locationManager.delegate = self;
+    [locationManager requestAlwaysAuthorization];
+    if ([CLLocationManager authorizationStatus] == kCLAuthorizationStatusAuthorizedAlways) {
+        os_log_info(OS_LOG_DEFAULT, "Authorized for location always. Geofence notifications will work");
+    }
 
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
                                 callbackId:command.callbackId];

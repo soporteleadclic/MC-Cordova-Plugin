@@ -149,6 +149,10 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
         return enableGeofence();
       case "disableGeofence":
         return disableGeofence();
+      case "getSDKState":
+        return getSDKState();
+      case "askForLocationPermissions":
+        return askForLocationPermissions();
       default:
         return null;
     }
@@ -270,6 +274,17 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     };
   }
 
+
+  private ActionHandler getSDKState() {
+    return new ActionHandler() {
+      @Override
+      public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+
+        callbackContext.success(sdk.getSdkState().toString());
+      }
+    };
+  }
+
   private ActionHandler getSystemToken() {
     return new ActionHandler() {
       @Override
@@ -280,15 +295,15 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
   }
 
   private ActionHandler enableGeofence() {
-    final MCCordovaPlugin thisObject = this;
     return new ActionHandler() {
       @Override
       public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
-        if(android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M ||cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+        sdk.getRegionMessageManager().enableGeofenceMessaging();
+        /*if(android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M ||cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
           sdk.getRegionMessageManager().enableGeofenceMessaging();
         } else {
           cordova.requestPermission(thisObject, PERMISSIONS_REQUEST_FINE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION);
-        }
+        }*/
 
         callbackContext.success();
       }
@@ -300,6 +315,19 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
       @Override
       public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
         sdk.getRegionMessageManager().disableGeofenceMessaging();
+        callbackContext.success();
+      }
+    };
+  }
+
+  private ActionHandler askForLocationPermissions() {
+    final MCCordovaPlugin thisObject = this;
+    return new ActionHandler() {
+      @Override
+      public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+        if(android.os.Build.VERSION.SDK_INT > android.os.Build.VERSION_CODES.M) {
+          cordova.requestPermission(thisObject, PERMISSIONS_REQUEST_FINE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION);
+        }
         callbackContext.success();
       }
     };
