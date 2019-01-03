@@ -67,7 +67,7 @@ public class MCInitProvider extends ContentProvider
       MarketingCloudConfig.Builder builder = MCSdkConfig.prepareConfigBuilder(ctx);
       if (builder != null) {
         MarketingCloudSdk.init(ctx, builder
-        .setNotificationCustomizationOptions(
+        /*.setNotificationCustomizationOptions(
           NotificationCustomizationOptions.create(new NotificationManager.NotificationBuilder() {
             @NonNull @Override
             public NotificationCompat.Builder setupNotificationBuilder(@NonNull Context context,
@@ -100,7 +100,7 @@ public class MCInitProvider extends ContentProvider
               return notificationCompatbuilder;
             }
           })
-        )
+        )*/
         .build(ctx), this);
       }
     }
