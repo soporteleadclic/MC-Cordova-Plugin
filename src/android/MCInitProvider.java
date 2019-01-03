@@ -37,19 +37,26 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
+import java.util.Set;
+import java.util.Random;
+
+import com.salesforce.marketingcloud.notifications.NotificationCustomizationOptions;
+import com.salesforce.marketingcloud.notifications.NotificationManager;
+import com.salesforce.marketingcloud.notifications.NotificationMessage;
 import com.salesforce.marketingcloud.InitializationStatus;
 import com.salesforce.marketingcloud.MarketingCloudConfig;
 import com.salesforce.marketingcloud.MarketingCloudSdk;
 import com.salesforce.marketingcloud.registration.RegistrationManager;
-import java.util.Set;
-import com.salesforce.marketingcloud.notifications.NotificationCustomizationOptions;
-import com.salesforce.marketingcloud.notifications.NotificationManager;
-import com.salesforce.marketingcloud.notifications.NotificationMessage;
+
 import com.amrest.latagliatella.R.drawable;
 import com.amrest.latagliatella.R;
+import com.amrest.latagliatella.MainActivity;
+
 import android.support.v4.app.NotificationCompat;
 import android.graphics.Color;
-
+import android.graphics.BitmapFactory;
+import android.app.PendingIntent;
+import android.content.Intent;
 
 public class MCInitProvider extends ContentProvider
     implements MarketingCloudSdk.InitializationListener {
@@ -65,7 +72,7 @@ public class MCInitProvider extends ContentProvider
             @NonNull @Override
             public NotificationCompat.Builder setupNotificationBuilder(@NonNull Context context,
                 @NonNull NotificationMessage notificationMessage) {
-              NotificationCompat.Builder builder =
+              NotificationCompat.Builder notificationCompatbuilder =
                   NotificationManager.getDefaultNotificationBuilder(
                       context,
                       notificationMessage,
@@ -73,11 +80,24 @@ public class MCInitProvider extends ContentProvider
                       R.drawable.ic_notification
                   );
 
-                //builder.setColor(0xffff0000);
-                builder.setLights(0xffff0000, 500, 2000);
-                builder.setColor(Color.parseColor("#8c1713"));
-                
-              return builder;
+                  notificationCompatbuilder.setContentIntent(
+                    NotificationManager.redirectIntentForAnalytics(
+                      context,
+                      PendingIntent.getActivity(
+                          context,
+                          new Random().nextInt(),
+                          new Intent(context, MainActivity.class),
+                          PendingIntent.FLAG_UPDATE_CURRENT
+                      ),
+                      notificationMessage,
+                      true
+                    )
+                  );
+                notificationCompatbuilder.setColor(Color.parseColor("#8c1713"));
+                //builder.setSmallIcon(R.drawable.icon);
+                notificationCompatbuilder.setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.drawable.ic_notification_preview));
+
+              return notificationCompatbuilder;
             }
           })
         )
