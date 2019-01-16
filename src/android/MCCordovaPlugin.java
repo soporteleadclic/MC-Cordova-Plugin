@@ -23,11 +23,21 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 package com.salesforce.marketingcloud.cordova;
 
+import android.app.Application;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
+import android.util.Log;
+
 import com.salesforce.marketingcloud.MCLogListener;
 import com.salesforce.marketingcloud.MarketingCloudSdk;
+import 	java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Map;
 import org.apache.cordova.CallbackContext;
@@ -36,7 +46,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class MCCordovaPlugin extends CordovaPlugin {
+
+public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnRequestPermissionsResultCallback {
+  private static final int PERMISSIONS_REQUEST_FINE_LOCATION = 1;
   static final String TAG = "~!MCCordova";
 
   private static JSONObject fromMap(Map<String, String> map) throws JSONException {
@@ -133,6 +145,14 @@ public class MCCordovaPlugin extends CordovaPlugin {
         return setContactKey();
       case "getContactKey":
         return getContactKey();
+      case "enableGeofence":
+        return enableGeofence();
+      case "disableGeofence":
+        return disableGeofence();
+      case "getSDKState":
+        return getSDKState();
+      case "askForLocationPermissions":
+        return askForLocationPermissions();
       default:
         return null;
     }
@@ -254,6 +274,17 @@ public class MCCordovaPlugin extends CordovaPlugin {
     };
   }
 
+
+  private ActionHandler getSDKState() {
+    return new ActionHandler() {
+      @Override
+      public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+
+        callbackContext.success(sdk.getSdkState().toString());
+      }
+    };
+  }
+
   private ActionHandler getSystemToken() {
     return new ActionHandler() {
       @Override
@@ -263,7 +294,60 @@ public class MCCordovaPlugin extends CordovaPlugin {
     };
   }
 
+  private ActionHandler enableGeofence() {
+    return new ActionHandler() {
+      @Override
+      public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+        sdk.getRegionMessageManager().enableGeofenceMessaging();
+        /*if(android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M ||cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+          sdk.getRegionMessageManager().enableGeofenceMessaging();
+        } else {
+          cordova.requestPermission(thisObject, PERMISSIONS_REQUEST_FINE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION);
+        }*/
+
+        callbackContext.success();
+      }
+    };
+  }
+
+  private ActionHandler disableGeofence() {
+    return new ActionHandler() {
+      @Override
+      public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+        sdk.getRegionMessageManager().disableGeofenceMessaging();
+        callbackContext.success();
+      }
+    };
+  }
+
+  private ActionHandler askForLocationPermissions() {
+    final MCCordovaPlugin thisObject = this;
+    return new ActionHandler() {
+      @Override
+      public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+        if(android.os.Build.VERSION.SDK_INT > android.os.Build.VERSION_CODES.M) {
+          cordova.requestPermission(thisObject, PERMISSIONS_REQUEST_FINE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+        callbackContext.success();
+      }
+    };
+  }
+
+  @Override
+  public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+    if (requestCode == PERMISSIONS_REQUEST_FINE_LOCATION) {
+      // Se activa geofence si el usuario ha aceptado el permiso
+      if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        MarketingCloudSdk sdk = MarketingCloudSdk.getInstance();
+        sdk.getRegionMessageManager().enableGeofenceMessaging();
+      }
+    }
+  }
+
+
   interface ActionHandler {
     void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext);
   }
+
+
 }

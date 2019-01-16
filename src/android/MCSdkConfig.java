@@ -101,6 +101,9 @@ public class MCSdkConfig {
             case CONFIG_PREFIX + "tenant_specific_endpoint":
               builder.setMarketingCloudServerUrl(val);
               break;
+            case CONFIG_PREFIX + "location":
+              builder.setGeofencingEnabled("true".equalsIgnoreCase(val));
+              break;
           }
         }
       }

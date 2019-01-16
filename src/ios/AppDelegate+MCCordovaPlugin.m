@@ -25,10 +25,10 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+#import <CoreLocation/CoreLocation.h>
 #import <objc/runtime.h>
 #import "AppDelegate+MCCordovaPlugin.h"
 #import "MCCordovaPlugin.h"
-
 #import "MarketingCloudSDK/MarketingCloudSDK.h"
 
 @implementation AppDelegate (MCCordovaPlugin)
@@ -37,11 +37,13 @@
     if (@available(iOS 10, *)) {
         [UNUserNotificationCenter currentNotificationCenter].delegate = self;
     }
+
 }
 
 - (void)application:(UIApplication *)application
     didReceiveRemoteNotification:(NSDictionary *)userInfo
           fetchCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler {
+
     if (@available(iOS 10, *)) {
         UNMutableNotificationContent *theSilentPushContent =
             [[UNMutableNotificationContent alloc] init];
@@ -55,6 +57,7 @@
     } else {
         [[MarketingCloudSDK sharedInstance] sfmc_setNotificationUserInfo:userInfo];
     }
+
     completionHandler(UIBackgroundFetchResultNewData);
 }
 
