@@ -275,7 +275,15 @@ var MCCordovaPlugin = {
     askForLocationPermissions: function(successCallback, errorCallback) {
         argsCheck.checkArgs('FF', `${PLUGIN_NAME}.askForLocationPermissions`, arguments);
         _exec(successCallback, errorCallback, 'askForLocationPermissions');
-    }
+    },
+    isLocationEnabled: function(successCallback, errorCallback = undefined) {
+        argsCheck.checkArgs('fF', `${PLUGIN_NAME}.isLocationEnabled`, arguments);
+        _exec(successCallback, errorCallback, 'isLocationEnabled');
+    },
+    isWatchingLocation: function(successCallback, errorCallback = undefined) {
+        argsCheck.checkArgs('fF', `${PLUGIN_NAME}.isWatchingLocation`, arguments);
+        _exec(successCallback, errorCallback, 'isWatchingLocation');
+    },
     /**
      *
      * @param {function(event)} notificationOpenedListener
