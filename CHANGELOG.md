@@ -1,5 +1,19 @@
-Change Log
-==========
+
+
+### Version 6.2.2
+
+* Updated iOS SDK to 6.2.2
+
+### Version 6.2.1
+
+* Updated to the 6.2.x versions of the Android and iOS Marketing Cloud SDK.
+* Added support to delay registration until contact key has been set. Refer to the [config documentation](README.md#config) for more details.
+* Require Tenant Specific Endpoint in the  `config.xml` file. If a Tenant Specific Endpoint is not specified an exception is thrown.
+
+### Version 6.1.0
+
+* Updated to the 6.1.x versions of the Android and iOS Marketing Cloud SDK.
+* Added support for listening to notification opened events.  This will allow you to take action when a user clicks a notification, such as loading the url from an Open Direct or Cloud Page message.  
 
 ### Version 6.0.0
 

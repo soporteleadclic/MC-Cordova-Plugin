@@ -27,11 +27,65 @@
 
 #import "MCCordovaPlugin.h"
 #import "MarketingCloudSDK/MarketingCloudSDK.h"
-#import <CoreLocation/CoreLocation.h>
 
 @implementation MCCordovaPlugin
 
-static CLLocationManager *locationManager;
+@synthesize eventsCallbackId;
+@synthesize notificationOpenedSubscribed;
+@synthesize cachedNotification;
+
++ (NSMutableDictionary *_Nullable)dataForNotificationReceived:(NSNotification *)notification {
+    NSMutableDictionary *notificationData = nil;
+
+    if (notification.userInfo != nil) {
+        if (@available(iOS 10.0, *)) {
+            UNNotificationRequest *userNotificationRequest = [notification.userInfo
+                objectForKey:
+                    @"SFMCFoundationUNNotificationReceivedNotificationKeyUNNotificationRequest"];
+            if (userNotificationRequest != nil) {
+                notificationData = [userNotificationRequest.content.userInfo mutableCopy];
+            }
+        }
+        if (notificationData == nil) {
+            NSDictionary *userNotificationUserInfo = [notification.userInfo
+                objectForKey:@"SFMCFoundationNotificationReceivedNotificationKeyUserInfo"];
+            notificationData = [userNotificationUserInfo mutableCopy];
+        }
+    }
+
+    if (notificationData != nil) {
+        if ([notificationData[@"aps"] objectForKey:@"content-available"] != nil) {
+            // Making the same assumption as the SDK would here.
+            // if silent push, bail out so that the data is not returned as "notification opened"
+            return nil;
+        }
+        NSString *alert = nil;
+        NSString *title = nil;
+        NSString *subtitle = nil;
+        if ([notificationData[@"aps"][@"alert"] isKindOfClass:[NSString class]]) {
+            alert = notificationData[@"aps"][@"alert"];
+        } else if ([notificationData[@"aps"][@"alert"] isKindOfClass:[NSDictionary class]]) {
+            // if not a silent push, pull out the rest of the alert values
+            if ([notificationData[@"aps"][@"alert"] isEqualToDictionary:@{}] == NO) {
+                alert = notificationData[@"aps"][@"alert"][@"body"];
+                title = notificationData[@"aps"][@"alert"][@"title"];
+                subtitle = notificationData[@"aps"][@"alert"][@"subtitle"];
+            }
+        }
+        if (alert != nil) {
+            [notificationData setValue:alert forKey:@"alert"];
+        }
+        if (title != nil) {
+            [notificationData setValue:title forKey:@"title"];
+        }
+        if (subtitle != nil) {
+            [notificationData setValue:subtitle forKey:@"subtitle"];
+        }
+        [notificationData removeObjectForKey:@"aps"];
+    }
+
+    return notificationData;
+}
 
 - (void)pluginInitialize {
     if ([MarketingCloudSDK sharedInstance] == nil) {
@@ -39,7 +93,6 @@ static CLLocationManager *locationManager;
         os_log_error(OS_LOG_DEFAULT, "Failed to access the MarketingCloudSDK");
     } else {
         NSDictionary *pluginSettings = self.commandDelegate.settings;
-        locationManager = [[CLLocationManager alloc] init];
 
         MarketingCloudSDKConfigBuilder *configBuilder = [MarketingCloudSDKConfigBuilder new];
         [configBuilder
@@ -53,9 +106,12 @@ static CLLocationManager *locationManager;
             [[pluginSettings objectForKey:@"com.salesforce.marketingcloud.analytics"] boolValue];
         [configBuilder sfmc_setAnalyticsEnabled:[NSNumber numberWithBool:analytics]];
 
-        // Se activa el geofence
-        BOOL location =  [[pluginSettings objectForKey:@"com.salesforce.marketingcloud.location"] boolValue];
-        [configBuilder sfmc_setLocationEnabled:[NSNumber numberWithBool:location]];
+        BOOL delayRegistrationUntilContactKeyIsSet = [[pluginSettings
+            objectForKey:
+                @"com.salesforce.marketingcloud.delay_registration_until_contact_key_is_set"]
+            boolValue];
+        [configBuilder sfmc_setDelayRegistrationUntilContactKeyIsSet:
+                           [NSNumber numberWithBool:delayRegistrationUntilContactKeyIsSet]];
 
         NSString *tse =
             [pluginSettings objectForKey:@"com.salesforce.marketingcloud.tenant_specific_endpoint"];
@@ -70,10 +126,60 @@ static CLLocationManager *locationManager;
             [self setDelegate];
             [[MarketingCloudSDK sharedInstance] sfmc_addTag:@"Cordova"];
             [self requestPushPermission];
-            
         } else if (configError != nil) {
             os_log_debug(OS_LOG_DEFAULT, "%@", configError);
+            if (configError.code == configureInvalidAppEndpointError) {
+                NSException *tseException = [NSException
+                    exceptionWithName:
+                        @"cordova-plugin-marketingcloudsdk:Tenant Specific Endpoint Exception"
+                               reason:@"configureInvalidAppEndpointError"
+                             userInfo:configError.userInfo];
+                @throw tseException;
+            }
         }
+
+        [[NSNotificationCenter defaultCenter]
+            addObserverForName:SFMCFoundationUNNotificationReceivedNotification
+                        object:nil
+                         queue:[NSOperationQueue mainQueue]
+                    usingBlock:^(NSNotification *_Nonnull note) {
+                      NSMutableDictionary *userInfo =
+                          [MCCordovaPlugin dataForNotificationReceived:note];
+                      if (userInfo != nil) {
+                          NSString *url = nil;
+                          NSString *type = nil;
+                          if ((url = [userInfo objectForKey:@"_od"])) {
+                              type = @"openDirect";
+                          } else if ((url = [userInfo objectForKey:@"_x"])) {
+                              type = @"cloudPage";
+                          } else {
+                              type = @"other";
+                          }
+
+                          if (url != nil) {
+                              [userInfo setValue:url forKey:@"url"];
+                          }
+                          [userInfo setValue:type forKey:@"type"];
+
+                          [self sendNotificationEvent:@{
+                              @"timeStamp" : [NSNumber
+                                  numberWithLong:([[NSDate date] timeIntervalSince1970] * 1000)],
+                              @"values" : userInfo,
+                              @"type" : @"notificationOpened"
+                          }];
+                      }
+                    }];
+    }
+}
+
+- (void)sendNotificationEvent:(NSDictionary *)notification {
+    if (self.notificationOpenedSubscribed && self.eventsCallbackId != nil) {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                messageAsDictionary:notification];
+        [result setKeepCallbackAsBool:YES];
+        [self.commandDelegate sendPluginResult:result callbackId:self.eventsCallbackId];
+    } else {
+        self.cachedNotification = notification;
     }
 }
 
@@ -130,16 +236,6 @@ static CLLocationManager *locationManager;
     [[MarketingCloudSDK sharedInstance] sfmc_setDebugLoggingEnabled:NO];
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
                                 callbackId:command.callbackId];
-}
-
-- (void) getSDKState:(CDVInvokedUrlCommand *)command {
-    [self.commandDelegate runInBackground:^ {
-        NSString* SDKState = [[MarketingCloudSDK sharedInstance] sfmc_getSDKState];
-        
-        [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                                             messageAsString:SDKState]
-                                callbackId:command.callbackId];
-    }];
 }
 
 - (void)getSystemToken:(CDVInvokedUrlCommand *)command {
@@ -247,29 +343,31 @@ static CLLocationManager *locationManager;
               callbackId:command.callbackId];
 }
 
-- (void)enableGeofence:(CDVInvokedUrlCommand *)command {
-    [[MarketingCloudSDK sharedInstance] sfmc_startWatchingLocation];
-    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
-                                callbackId:command.callbackId];
-}
-
-- (void)disableGeofence:(CDVInvokedUrlCommand *)command {
-    [[MarketingCloudSDK sharedInstance] sfmc_stopWatchingLocation];
-
-    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
-                                callbackId:command.callbackId];
-}
-
-- (void)askForLocationPermissions:(CDVInvokedUrlCommand *)command {
-    // Se pide permiso de acceso a la localización
-    locationManager.delegate = self;
-    [locationManager requestAlwaysAuthorization];
-    if ([CLLocationManager authorizationStatus] == kCLAuthorizationStatusAuthorizedAlways) {
-        os_log_info(OS_LOG_DEFAULT, "Authorized for location always. Geofence notifications will work");
+- (void)registerEventsChannel:(CDVInvokedUrlCommand *)command {
+    self.eventsCallbackId = command.callbackId;
+    if (self.notificationOpenedSubscribed) {
+        [self sendCachedNotification];
     }
+}
 
-    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
-                                callbackId:command.callbackId];
+- (void)subscribe:(CDVInvokedUrlCommand *)command {
+    if (command.arguments != nil && [command.arguments count] > 0) {
+        NSString *eventName = [command.arguments objectAtIndex:0];
+
+        if ([eventName isEqualToString:@"notificationOpened"]) {
+            self.notificationOpenedSubscribed = YES;
+            if (self.eventsCallbackId != nil) {
+                [self sendCachedNotification];
+            }
+        }
+    }
+}
+
+- (void)sendCachedNotification {
+    if (self.cachedNotification != nil) {
+        [self sendNotificationEvent:self.cachedNotification];
+        self.cachedNotification = nil;
+    }
 }
 
 @end

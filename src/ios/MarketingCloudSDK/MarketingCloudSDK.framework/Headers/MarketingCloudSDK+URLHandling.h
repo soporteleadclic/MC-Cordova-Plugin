@@ -30,14 +30,14 @@ FOUNDATION_EXTERN NSString * _Nonnull const SFMCURLTypeAction;
  @param url value NSURL sent with the Location, CloudPage, OpenDirect or Inbox message
  @param type value NSInteger enumeration of the MobilePush source type of this URL
  */
--(void) sfmc_handleURL:(NSURL *) url type:(NSString * _Nonnull) type;
+-(void) sfmc_handleURL:(NSURL *_Nonnull) url type:(NSString * _Nonnull) type;
 
 @end
 
 @interface MarketingCloudSDK (URLHandling)
 
 /**
- Method to set a delegate implmenting the MarketingCloudSDKURLHandlingDelegate.
+ Method to set a delegate implementing the MarketingCloudSDKURLHandlingDelegate.
  
  @param delegate value A class adhering to the MarketingCloudSDKURLHandlingDelegate and implementing the required method.
  */
