@@ -245,6 +245,10 @@ var MCCordovaPlugin = {
         argsCheck.checkArgs('FF', `${PLUGIN_NAME}.disableVerboseLogging`, arguments);
         _exec(successCallback, errorCallback, 'disableVerboseLogging');
     },
+    getSDKState: function(successCallback, errorCallback) {
+        argsCheck.checkArgs('fF', `${PLUGIN_NAME}.getSDKState`, arguments);
+        _exec(successCallback, errorCallback, 'getSDKState');
+    },
     /**
      * Enables geofence in the native Marketing Cloud SDK.
      * @param  {function} [successCallback]

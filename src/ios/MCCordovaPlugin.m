@@ -27,12 +27,16 @@
 
 #import "MCCordovaPlugin.h"
 #import "MarketingCloudSDK/MarketingCloudSDK.h"
+#import <CoreLocation/CoreLocation.h>
 
 @implementation MCCordovaPlugin
 
 @synthesize eventsCallbackId;
 @synthesize notificationOpenedSubscribed;
 @synthesize cachedNotification;
+
+static CLLocationManager *locationManager;
+
 
 + (NSMutableDictionary *_Nullable)dataForNotificationReceived:(NSNotification *)notification {
     NSMutableDictionary *notificationData = nil;
@@ -93,6 +97,7 @@
         os_log_error(OS_LOG_DEFAULT, "Failed to access the MarketingCloudSDK");
     } else {
         NSDictionary *pluginSettings = self.commandDelegate.settings;
+        locationManager = [[CLLocationManager alloc] init];
 
         MarketingCloudSDKConfigBuilder *configBuilder = [MarketingCloudSDKConfigBuilder new];
         [configBuilder
@@ -112,6 +117,9 @@
             boolValue];
         [configBuilder sfmc_setDelayRegistrationUntilContactKeyIsSet:
                            [NSNumber numberWithBool:delayRegistrationUntilContactKeyIsSet]];
+
+        BOOL location =  [[pluginSettings objectForKey:@"com.salesforce.marketingcloud.location"] boolValue];
+            [configBuilder sfmc_setLocationEnabled:[NSNumber numberWithBool:location]];
 
         NSString *tse =
             [pluginSettings objectForKey:@"com.salesforce.marketingcloud.tenant_specific_endpoint"];
