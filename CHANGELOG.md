@@ -1,6 +1,15 @@
-### Version 6.2.2
+Change Log
+==========
 
-* Updated iOS SDK to 6.2.2
+### Version 6.3.1
+* Added support for logging the SDK state to the native platform logging system (Android: Logcat, iOS: Console).
+* Added documentation for setting up push for iOS.
+
+### Version 6.3.0
+
+* Updated to the 6.3.x versions of the Android and iOS Marketing Cloud SDK.
+* The plugin now utilizes Cocoapods for the iOS SDK integration.
+* Support In-App Messaging functionality of the MobilePush SDK.
 
 ### Version 6.2.1
 

@@ -23,25 +23,26 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 package com.salesforce.marketingcloud.cordova;
 
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
-import android.app.Application;
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.util.Log;
 
 import com.salesforce.marketingcloud.MCLogListener;
 import com.salesforce.marketingcloud.MarketingCloudSdk;
+import com.salesforce.marketingcloud.UrlHandler;
 import com.salesforce.marketingcloud.notifications.NotificationManager;
 import com.salesforce.marketingcloud.notifications.NotificationMessage;
-import org.apache.cordova.*;
+
+import org.apache.cordova.CallbackContext;
+import org.apache.cordova.CordovaInterface;
+import org.apache.cordova.CordovaPlugin;
+import org.apache.cordova.CordovaWebView;
+import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -49,8 +50,7 @@ import org.json.JSONObject;
 import java.util.Collection;
 import java.util.Map;
 
-public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnRequestPermissionsResultCallback {
-    private static final int PERMISSIONS_REQUEST_FINE_LOCATION = 1;
+public class MCCordovaPlugin extends CordovaPlugin implements UrlHandler {
     static final String TAG = "~!MCCordova";
 
     private CallbackContext eventsChannel = null;
@@ -77,9 +77,31 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
         return data;
     }
 
+    @Nullable
+    @Override
+    public PendingIntent handleUrl(
+        @NonNull Context context, @NonNull String url, @NonNull String urlType) {
+        if (eventsChannel != null) {
+            try {
+                JSONObject eventArgs = new JSONObject();
+                eventArgs.put("type", "urlAction");
+                eventArgs.put("url", url);
+                PluginResult result = new PluginResult(PluginResult.Status.OK, eventArgs);
+                result.setKeepCallback(true);
+
+                eventsChannel.sendPluginResult(result);
+            } catch (Exception e) {
+                // NO_OP
+            }
+        }
+        return null;
+    }
+
     @Override
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
-        handleNotificationMessage(NotificationManager.extractMessage(cordova.getActivity().getIntent()));
+        MCSdkListener.INSTANCE.urlHandler = this;
+        handleNotificationMessage(
+            NotificationManager.extractMessage(cordova.getActivity().getIntent()));
     }
 
     @Override
@@ -101,15 +123,15 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
                     values.put("url", message.url());
                 }
                 switch (message.type()) {
-                case OTHER:
-                    values.put("type", "other");
-                    break;
-                case CLOUD_PAGE:
-                    values.put("type", "cloudPage");
-                    break;
-                case OPEN_DIRECT:
-                    values.put("type", "openDirect");
-                    break;
+                    case OTHER:
+                        values.put("type", "other");
+                        break;
+                    case CLOUD_PAGE:
+                        values.put("type", "cloudPage");
+                        break;
+                    case OPEN_DIRECT:
+                        values.put("type", "openDirect");
+                        break;
                 }
                 eventArgs.put("values", values);
                 eventArgs.put("type", "notificationOpened");
@@ -129,8 +151,8 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     }
 
     @Override
-    public boolean execute(final String action, final JSONArray args, final CallbackContext callbackContext)
-            throws JSONException {
+    public boolean execute(final String action, final JSONArray args,
+        final CallbackContext callbackContext) throws JSONException {
         if (handleStaticAction(action, args, callbackContext)) {
             return true;
         }
@@ -162,25 +184,26 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
         return true;
     }
 
-    private boolean handleStaticAction(String action, JSONArray args, CallbackContext callbackContext) {
+    private boolean handleStaticAction(
+        String action, JSONArray args, CallbackContext callbackContext) {
         switch (action) {
-        case "enableVerboseLogging":
-            MarketingCloudSdk.setLogLevel(MCLogListener.VERBOSE);
-            MarketingCloudSdk.setLogListener(new MCLogListener.AndroidLogListener());
-            callbackContext.success();
-            return true;
-        case "disableVerboseLogging":
-            MarketingCloudSdk.setLogListener(null);
-            callbackContext.success();
-            return true;
-        case "registerEventsChannel":
-            registerEventsChannel(callbackContext);
-            return true;
-        case "subscribe":
-            subscribe(args, callbackContext);
-            return true;
-        default:
-            return false;
+            case "enableVerboseLogging":
+                MarketingCloudSdk.setLogLevel(MCLogListener.VERBOSE);
+                MarketingCloudSdk.setLogListener(new MCLogListener.AndroidLogListener());
+                callbackContext.success();
+                return true;
+            case "disableVerboseLogging":
+                MarketingCloudSdk.setLogListener(null);
+                callbackContext.success();
+                return true;
+            case "registerEventsChannel":
+                registerEventsChannel(callbackContext);
+                return true;
+            case "subscribe":
+                subscribe(args, callbackContext);
+                return true;
+            default:
+                return false;
         }
     }
 
@@ -193,14 +216,19 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
 
     private void subscribe(JSONArray args, CallbackContext context) {
         switch (args.optString(0, null)) {
-        case "notificationOpened":
-            notificationOpenedSubscribed = true;
-            if (eventsChannel != null) {
-                sendCachedPushEvent(eventsChannel);
-            }
-            break;
-        default:
-            // NO_OP
+            case "notificationOpened":
+                notificationOpenedSubscribed = true;
+                if (eventsChannel != null) {
+                    sendCachedPushEvent(eventsChannel);
+                }
+                break;
+            case "urlAction":
+                // NO_OP
+                // Always send urlAction events to the JS plugin.  It will manager the listener
+                // registration.
+                break;
+            default:
+                // NO_OP
         }
     }
 
@@ -213,47 +241,42 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
 
     private ActionHandler getActionHandler(String action) {
         switch (action) {
-        case "getSystemToken":
-            return getSystemToken();
-        case "isPushEnabled":
-            return isPushEnabled();
-        case "enablePush":
-            return enabledPush();
-        case "disablePush":
-            return disablePush();
-        case "getAttributes":
-            return getAttributes();
-        case "setAttribute":
-            return setAttribute();
-        case "clearAttribute":
-            return clearAttribute();
-        case "addTag":
-            return addTag();
-        case "removeTag":
-            return removeTag();
-        case "getTags":
-            return getTags();
-        case "setContactKey":
-            return setContactKey();
-        case "getContactKey":
-            return getContactKey();
-        case "enableGeofence":
-            return enableGeofence();
-        case "disableGeofence":
-            return disableGeofence();
-        case "getSDKState":
-            return getSDKState();
-        case "askForLocationPermissions":
-            return askForLocationPermissions();
-        default:
-            return null;
+            case "getSystemToken":
+                return getSystemToken();
+            case "isPushEnabled":
+                return isPushEnabled();
+            case "enablePush":
+                return enabledPush();
+            case "disablePush":
+                return disablePush();
+            case "getAttributes":
+                return getAttributes();
+            case "setAttribute":
+                return setAttribute();
+            case "clearAttribute":
+                return clearAttribute();
+            case "addTag":
+                return addTag();
+            case "removeTag":
+                return removeTag();
+            case "getTags":
+                return getTags();
+            case "setContactKey":
+                return setContactKey();
+            case "getContactKey":
+                return getContactKey();
+            case "logSdkState":
+                return logSdkState();
+            default:
+                return null;
         }
     }
 
     private ActionHandler getContactKey() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
                 callbackContext.success(sdk.getRegistrationManager().getContactKey());
             }
         };
@@ -262,9 +285,11 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     private ActionHandler setContactKey() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
                 String contactKey = args.optString(0, null);
-                boolean success = sdk.getRegistrationManager().edit().setContactKey(contactKey).commit();
+                boolean success =
+                    sdk.getRegistrationManager().edit().setContactKey(contactKey).commit();
                 callbackContext.success(success ? 1 : 0);
             }
         };
@@ -273,7 +298,8 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     private ActionHandler getTags() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
                 callbackContext.success(fromCollection(sdk.getRegistrationManager().getTags()));
             }
         };
@@ -282,7 +308,8 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     private ActionHandler removeTag() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
                 String tag = args.optString(0, null);
                 boolean success = sdk.getRegistrationManager().edit().removeTag(tag).commit();
                 callbackContext.success(success ? 1 : 0);
@@ -293,7 +320,8 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     private ActionHandler addTag() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
                 String tag = args.optString(0, null);
                 boolean success = sdk.getRegistrationManager().edit().addTag(tag).commit();
                 callbackContext.success(success ? 1 : 0);
@@ -304,7 +332,8 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     private ActionHandler clearAttribute() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
                 String key = args.optString(0, null);
                 boolean success = sdk.getRegistrationManager().edit().clearAttribute(key).commit();
                 callbackContext.success(success ? 1 : 0);
@@ -315,10 +344,12 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     private ActionHandler setAttribute() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
                 String key = args.optString(0, null);
                 String value = args.optString(1);
-                boolean success = sdk.getRegistrationManager().edit().setAttribute(key, value).commit();
+                boolean success =
+                    sdk.getRegistrationManager().edit().setAttribute(key, value).commit();
                 callbackContext.success(success ? 1 : 0);
             }
         };
@@ -327,7 +358,8 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     private ActionHandler getAttributes() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
                 try {
                     callbackContext.success(fromMap(sdk.getRegistrationManager().getAttributes()));
                 } catch (JSONException e) {
@@ -340,7 +372,8 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     private ActionHandler disablePush() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
                 sdk.getPushMessageManager().disablePush();
                 callbackContext.success();
             }
@@ -350,7 +383,8 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     private ActionHandler enabledPush() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
                 sdk.getPushMessageManager().enablePush();
                 callbackContext.success();
             }
@@ -360,7 +394,8 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     private ActionHandler isPushEnabled() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
                 callbackContext.success(sdk.getPushMessageManager().isPushEnabled() ? 1 : 0);
             }
         };
@@ -369,76 +404,33 @@ public class MCCordovaPlugin extends CordovaPlugin implements ActivityCompat.OnR
     private ActionHandler getSystemToken() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
                 callbackContext.success(sdk.getPushMessageManager().getPushToken());
             }
         };
     }
 
-    private ActionHandler getSDKState() {
+    private ActionHandler logSdkState() {
         return new ActionHandler() {
             @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
-
-                callbackContext.success(sdk.getSdkState().toString());
-            }
-        };
-    }
-
-    private ActionHandler enableGeofence() {
-        return new ActionHandler() {
-            @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
-                sdk.getRegionMessageManager().enableGeofenceMessaging();
-                /*
-                 * if(android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M
-                 * ||cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
-                 * sdk.getRegionMessageManager().enableGeofenceMessaging(); } else {
-                 * cordova.requestPermission(thisObject, PERMISSIONS_REQUEST_FINE_LOCATION,
-                 * Manifest.permission.ACCESS_FINE_LOCATION); }
-                 */
-
+            public void execute(
+                MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+                log("MCSDK STATE", sdk.getSdkState().toString());
                 callbackContext.success();
             }
         };
-    }
-
-    private ActionHandler disableGeofence() {
-        return new ActionHandler() {
-            @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
-                sdk.getRegionMessageManager().disableGeofenceMessaging();
-                callbackContext.success();
-            }
-        };
-    }
-
-    private ActionHandler askForLocationPermissions() {
-        final MCCordovaPlugin thisObject = this;
-        return new ActionHandler() {
-            @Override
-            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
-                if (android.os.Build.VERSION.SDK_INT > android.os.Build.VERSION_CODES.M) {
-                    cordova.requestPermission(thisObject, PERMISSIONS_REQUEST_FINE_LOCATION,
-                            Manifest.permission.ACCESS_FINE_LOCATION);
-                }
-                callbackContext.success();
-            }
-        };
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
-        if (requestCode == PERMISSIONS_REQUEST_FINE_LOCATION) {
-            // Se activa geofence si el usuario ha aceptado el permiso
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                MarketingCloudSdk sdk = MarketingCloudSdk.getInstance();
-                sdk.getRegionMessageManager().enableGeofenceMessaging();
-            }
-        }
     }
 
     interface ActionHandler {
         void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext);
+    }
+
+    private static int MAX_LOG_LENGTH = 4000;
+
+    private static void log(String tag, String msg) {
+        for (int i = 0, length = msg.length(); i < length; i += MAX_LOG_LENGTH) {
+            Log.println(Log.DEBUG, tag, msg.substring(i, Math.min(length, i + MAX_LOG_LENGTH)));
+        }
     }
 }

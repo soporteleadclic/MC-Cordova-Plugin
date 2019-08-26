@@ -1,6 +1,6 @@
 # Salesforce Marketing Cloud Cordova Plugin
 
-Use this plugin to implement the Marketing Cloud MobilePush SDK for your [iOS](https://salesforce-marketingcloud.github.io/MarketingCloudSDK-iOS/) and [Android](http://salesforce-marketingcloud.github.io/JB4A-SDK-Android/) applications.
+Use this plugin to implement the Marketing Cloud MobilePush SDK for your [iOS](https://salesforce-marketingcloud.github.io/MarketingCloudSDK-iOS/) and [Android](http://salesforce-marketingcloud.github.io/MarketingCloudSDK-Android/) applications.
 
 ## Release Notes
 
@@ -12,6 +12,14 @@ Release notes for the plugin can be found [here](CHANGELOG.md)
 
 ```shell
 cordova plugin add cordova-plugin-marketingcloudsdk
+```
+
+**Required for iOS**
+
+You must have [Cocoapods](https://cocoapods.org/) installed for the iOS platform integration.  Execute the following commands from terminal to install:
+```shell
+sudo gem install cocoapods
+pod repo update
 ```
 
 #### 2. Modify your application's `config.xml` to configure the plugin <a name="config"></a>
@@ -44,6 +52,10 @@ To enable push support for the Android platform you will need to include the goo
   <resource-file src="google-services.json" target="app/google-services.json" />
 </platform>
 ```
+
+#### 4. Enable iOS Push
+
+Follow [these instructions](./ios_push.md) to enable push for iOS.
 
 ## API Reference <a name="reference"></a>
 

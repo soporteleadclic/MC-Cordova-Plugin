@@ -26,32 +26,30 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #import "MCCordovaPlugin.h"
-#import "MarketingCloudSDK/MarketingCloudSDK.h"
-#import <CoreLocation/CoreLocation.h>
 
 @implementation MCCordovaPlugin
+
+const int LOG_LENGTH = 800;
 
 @synthesize eventsCallbackId;
 @synthesize notificationOpenedSubscribed;
 @synthesize cachedNotification;
-
-static CLLocationManager *locationManager;
 
 + (NSMutableDictionary *_Nullable)dataForNotificationReceived:(NSNotification *)notification {
     NSMutableDictionary *notificationData = nil;
 
     if (notification.userInfo != nil) {
         if (@available(iOS 10.0, *)) {
-            UNNotificationRequest *userNotificationRequest = [notification.userInfo
-                objectForKey:
-                    @"SFMCFoundationUNNotificationReceivedNotificationKeyUNNotificationRequest"];
+            UNNotificationRequest *userNotificationRequest =
+                notification.userInfo
+                    [@"SFMCFoundationUNNotificationReceivedNotificationKeyUNNotificationRequest"];
             if (userNotificationRequest != nil) {
                 notificationData = [userNotificationRequest.content.userInfo mutableCopy];
             }
         }
         if (notificationData == nil) {
-            NSDictionary *userNotificationUserInfo = [notification.userInfo
-                objectForKey:@"SFMCFoundationNotificationReceivedNotificationKeyUserInfo"];
+            NSDictionary *userNotificationUserInfo =
+                notification.userInfo[@"SFMCFoundationNotificationReceivedNotificationKeyUserInfo"];
             notificationData = [userNotificationUserInfo mutableCopy];
         }
     }
@@ -90,38 +88,59 @@ static CLLocationManager *locationManager;
     return notificationData;
 }
 
+- (void)log:(NSString *)msg {
+    if (@available(iOS 10, *)) {
+        if (self.logger == nil) {
+            self.logger =
+                os_log_create("com.salesforce.marketingcloud.marketingcloudsdk", "Cordova");
+        }
+        os_log_info(self.logger, "%@", msg);
+    } else {
+        NSLog(@"%@", msg);
+    }
+}
+
+- (void)splitLog:(NSString *)msg {
+    NSInteger length = msg.length;
+    for (int i = 0; i < length; i += LOG_LENGTH) {
+        NSInteger rangeLength = MIN(length - i, LOG_LENGTH);
+        [self log:[msg substringWithRange:NSMakeRange((NSUInteger)i, (NSUInteger)rangeLength)]];
+    }
+}
+
+- (void)sfmc_handleURL:(NSURL *)url type:(NSString *)type {
+    if ([type isEqualToString:@"action"] && self.eventsCallbackId != nil) {
+        CDVPluginResult *result = [CDVPluginResult
+               resultWithStatus:CDVCommandStatus_OK
+            messageAsDictionary:@{@"type" : @"urlAction", @"url" : url.absoluteString}];
+        [result setKeepCallbackAsBool:YES];
+        [self.commandDelegate sendPluginResult:result callbackId:self.eventsCallbackId];
+    }
+}
+
 - (void)pluginInitialize {
     if ([MarketingCloudSDK sharedInstance] == nil) {
         // failed to access the MarketingCloudSDK
         os_log_error(OS_LOG_DEFAULT, "Failed to access the MarketingCloudSDK");
     } else {
         NSDictionary *pluginSettings = self.commandDelegate.settings;
-        locationManager = [[CLLocationManager alloc] init];
 
         MarketingCloudSDKConfigBuilder *configBuilder = [MarketingCloudSDKConfigBuilder new];
         [configBuilder
-            sfmc_setApplicationId:[pluginSettings
-                                      objectForKey:@"com.salesforce.marketingcloud.app_id"]];
+            sfmc_setApplicationId:pluginSettings[@"com.salesforce.marketingcloud.app_id"]];
         [configBuilder
-            sfmc_setAccessToken:[pluginSettings
-                                    objectForKey:@"com.salesforce.marketingcloud.access_token"]];
+            sfmc_setAccessToken:pluginSettings[@"com.salesforce.marketingcloud.access_token"]];
 
-        BOOL analytics =
-            [[pluginSettings objectForKey:@"com.salesforce.marketingcloud.analytics"] boolValue];
-        [configBuilder sfmc_setAnalyticsEnabled:[NSNumber numberWithBool:analytics]];
+        BOOL analytics = [pluginSettings[@"com.salesforce.marketingcloud.analytics"] boolValue];
+        [configBuilder sfmc_setAnalyticsEnabled:@(analytics)];
 
-        BOOL delayRegistrationUntilContactKeyIsSet = [[pluginSettings
-            objectForKey:
-                @"com.salesforce.marketingcloud.delay_registration_until_contact_key_is_set"]
+        BOOL delayRegistrationUntilContactKeyIsSet = [pluginSettings
+                [@"com.salesforce.marketingcloud.delay_registration_until_contact_key_is_set"]
             boolValue];
-        [configBuilder sfmc_setDelayRegistrationUntilContactKeyIsSet:
-                           [NSNumber numberWithBool:delayRegistrationUntilContactKeyIsSet]];
+        [configBuilder
+            sfmc_setDelayRegistrationUntilContactKeyIsSet:@(delayRegistrationUntilContactKeyIsSet)];
 
-        BOOL location =  [[pluginSettings objectForKey:@"com.salesforce.marketingcloud.location"] boolValue];
-            [configBuilder sfmc_setLocationEnabled:[NSNumber numberWithBool:location]];
-
-        NSString *tse =
-            [pluginSettings objectForKey:@"com.salesforce.marketingcloud.tenant_specific_endpoint"];
+        NSString *tse = pluginSettings[@"com.salesforce.marketingcloud.tenant_specific_endpoint"];
         if (tse != nil) {
             [configBuilder sfmc_setMarketingCloudServerUrl:tse];
         }
@@ -131,6 +150,7 @@ static CLLocationManager *locationManager;
                 sfmc_configureWithDictionary:[configBuilder sfmc_build]
                                        error:&configError]) {
             [self setDelegate];
+            [[MarketingCloudSDK sharedInstance] sfmc_setURLHandlingDelegate:self];
             [[MarketingCloudSDK sharedInstance] sfmc_addTag:@"Cordova"];
             [self requestPushPermission];
         } else if (configError != nil) {
@@ -155,9 +175,9 @@ static CLLocationManager *locationManager;
                       if (userInfo != nil) {
                           NSString *url = nil;
                           NSString *type = nil;
-                          if ((url = [userInfo objectForKey:@"_od"])) {
+                          if ((url = userInfo[@"_od"])) {
                               type = @"openDirect";
-                          } else if ((url = [userInfo objectForKey:@"_x"])) {
+                          } else if ((url = userInfo[@"_x"])) {
                               type = @"cloudPage";
                           } else {
                               type = @"other";
@@ -169,8 +189,8 @@ static CLLocationManager *locationManager;
                           [userInfo setValue:type forKey:@"type"];
 
                           [self sendNotificationEvent:@{
-                              @"timeStamp" : [NSNumber
-                                  numberWithLong:([[NSDate date] timeIntervalSince1970] * 1000)],
+                              @"timeStamp" :
+                                  @((long)([[NSDate date] timeIntervalSince1970] * 1000)),
                               @"values" : userInfo,
                               @"type" : @"notificationOpened"
                           }];
@@ -245,6 +265,12 @@ static CLLocationManager *locationManager;
                                 callbackId:command.callbackId];
 }
 
+- (void)logSdkState:(CDVInvokedUrlCommand *)command {
+    [self splitLog:[[MarketingCloudSDK sharedInstance] sfmc_getSDKState]];
+    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
+                                callbackId:command.callbackId];
+}
+
 - (void)getSystemToken:(CDVInvokedUrlCommand *)command {
     NSString *systemToken = [[MarketingCloudSDK sharedInstance] sfmc_deviceToken];
 
@@ -278,8 +304,8 @@ static CLLocationManager *locationManager;
 }
 
 - (void)setAttribute:(CDVInvokedUrlCommand *)command {
-    NSString *name = [command.arguments objectAtIndex:0];
-    NSString *value = [command.arguments objectAtIndex:1];
+    NSString *name = command.arguments[0];
+    NSString *value = command.arguments[1];
 
     BOOL success = [[MarketingCloudSDK sharedInstance] sfmc_setAttributeNamed:name value:value];
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
@@ -288,7 +314,7 @@ static CLLocationManager *locationManager;
 }
 
 - (void)clearAttribute:(CDVInvokedUrlCommand *)command {
-    NSString *name = [command.arguments objectAtIndex:0];
+    NSString *name = command.arguments[0];
 
     BOOL success = [[MarketingCloudSDK sharedInstance] sfmc_clearAttributeNamed:name];
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
@@ -314,7 +340,7 @@ static CLLocationManager *locationManager;
 }
 
 - (void)setContactKey:(CDVInvokedUrlCommand *)command {
-    NSString *contactKey = [command.arguments objectAtIndex:0];
+    NSString *contactKey = command.arguments[0];
 
     BOOL success = [[MarketingCloudSDK sharedInstance] sfmc_setContactKey:contactKey];
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
@@ -323,7 +349,7 @@ static CLLocationManager *locationManager;
 }
 
 - (void)addTag:(CDVInvokedUrlCommand *)command {
-    NSString *tag = [command.arguments objectAtIndex:0];
+    NSString *tag = command.arguments[0];
 
     BOOL success = [[MarketingCloudSDK sharedInstance] sfmc_addTag:tag];
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
@@ -332,7 +358,7 @@ static CLLocationManager *locationManager;
 }
 
 - (void)removeTag:(CDVInvokedUrlCommand *)command {
-    NSString *tag = [command.arguments objectAtIndex:0];
+    NSString *tag = command.arguments[0];
 
     BOOL success = [[MarketingCloudSDK sharedInstance] sfmc_removeTag:tag];
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
@@ -359,7 +385,7 @@ static CLLocationManager *locationManager;
 
 - (void)subscribe:(CDVInvokedUrlCommand *)command {
     if (command.arguments != nil && [command.arguments count] > 0) {
-        NSString *eventName = [command.arguments objectAtIndex:0];
+        NSString *eventName = command.arguments[0];
 
         if ([eventName isEqualToString:@"notificationOpened"]) {
             self.notificationOpenedSubscribed = YES;
@@ -375,55 +401,6 @@ static CLLocationManager *locationManager;
         [self sendNotificationEvent:self.cachedNotification];
         self.cachedNotification = nil;
     }
-}
-
-- (void) getSDKState:(CDVInvokedUrlCommand *)command {
-    [self.commandDelegate runInBackground:^ {
-        NSString* SDKState = [[MarketingCloudSDK sharedInstance] sfmc_getSDKState];
-        
-        [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                                             messageAsString:SDKState]
-                                callbackId:command.callbackId];
-    }];
-}
-
-- (void)enableGeofence:(CDVInvokedUrlCommand *)command {
-    [[MarketingCloudSDK sharedInstance] sfmc_startWatchingLocation];
-    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
-                                callbackId:command.callbackId];
-}
-
-- (void)disableGeofence:(CDVInvokedUrlCommand *)command {
-    [[MarketingCloudSDK sharedInstance] sfmc_stopWatchingLocation];
-
-    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
-                                callbackId:command.callbackId];
-}
-
-- (void)isLocationEnabled:(CDVInvokedUrlCommand *)command {
-    BOOL enabled = [[MarketingCloudSDK sharedInstance] sfmc_locationEnabled];
-    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                                         messageAsInt:(enabled) ? 1 : 0]
-                                callbackId:command.callbackId];
-}
-
-- (void)isWatchingLocation:(CDVInvokedUrlCommand *)command {
-    BOOL enabled = [[MarketingCloudSDK sharedInstance] sfmc_watchingLocation];
-    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                                         messageAsInt:(enabled) ? 1 : 0]
-                                callbackId:command.callbackId];
-}
-
-- (void)askForLocationPermissions:(CDVInvokedUrlCommand *)command {
-    // Se pide permiso de acceso a la localización
-    locationManager.delegate = self;
-    [locationManager requestAlwaysAuthorization];
-    if ([CLLocationManager authorizationStatus] == kCLAuthorizationStatusAuthorizedAlways) {
-        os_log_info(OS_LOG_DEFAULT, "Authorized for location always. Geofence notifications will work");
-    }
-
-    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
-                                callbackId:command.callbackId];
 }
 
 @end

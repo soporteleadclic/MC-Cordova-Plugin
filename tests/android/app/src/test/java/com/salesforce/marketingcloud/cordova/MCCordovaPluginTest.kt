@@ -27,6 +27,7 @@
 package com.salesforce.marketingcloud.cordova
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import com.nhaarman.mockitokotlin2.*
 import com.salesforce.marketingcloud.MCLogListener
@@ -48,13 +49,17 @@ import org.junit.runner.RunWith
 import org.mockito.Mockito
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
+import java.util.concurrent.ExecutorService
 
 @RunWith(RobolectricTestRunner::class)
 @Config(shadows = [ShadowMarketingCloudSdk::class])
 class MCCordovaPluginTest {
 
     val plugin = MCCordovaPlugin()
-    val testExecutorService = TestExecutorService()
+    val testExecutorService = mock<ExecutorService> {
+        on { execute(any()) } doAnswer { (it.arguments[0] as? Runnable)?.run() }
+    }
     val sdk = mock<MarketingCloudSdk>()
     val pushMessageManager = mock<PushMessageManager>()
     val registrationManager = mock<RegistrationManager>()
@@ -454,6 +459,45 @@ class MCCordovaPluginTest {
         }
     }
 
+    @Test
+    fun urlAction_sendsUrlResult() {
+        // GIVEN
+        val url = "http://www.salesforce.com"
+        assertThat(plugin.execute("registerEventsChannel", JSONArray(), callbackContext)).isTrue()
+        plugin.execute("subscribe", JSONArray().apply { put("urlAction") }, mock<CallbackContext>())
+
+        // WHEN
+        plugin.handleUrl(mock<Context>(), url, "webUrl")
+
+        // THEN
+        argumentCaptor<PluginResult>().apply {
+            verify(callbackContext).sendPluginResult(capture())
+        }.firstValue.run {
+            assertThat(keepCallback).isTrue()
+            assertThat(status).isEqualTo(PluginResult.Status.OK.ordinal)
+            assertThat(message).isNotNull()
+            JSONObject(message).run {
+                assertThat(getString("type")).isEqualTo("urlAction")
+                assertThat(getString("url")).isEqualTo(url)
+            }
+        }
+    }
+
+    @Test
+    fun logSdkState_printsStateToLog() {
+        // GIVEN
+        ShadowMarketingCloudSdk.isReady(true)
+        val testState = JSONObject().apply { put("state", "a".repeat(4000)) }
+        given(sdk.sdkState).willReturn(testState)
+
+        // WHEN
+        val callSuccess = plugin.execute("logSdkState", JSONArray(), callbackContext)
+
+        assertThat(callSuccess).isTrue()
+        val stateLogs = ShadowLog.getLogsForTag("MCSDK STATE")
+        assertThat(stateLogs).hasSize(2) // Should have split log into two calls given size of sdk state
+        verify(callbackContext).success()
+    }
 
     private fun intentWithMessage(messageId: String = "mId", alert: String = "Alert text",
                                   openDirectUrl: String? = null, cloudPageUrl: String? = null): Intent {
