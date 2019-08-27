@@ -23,6 +23,7 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 package com.salesforce.marketingcloud.cordova;
 
 import android.content.Context;
@@ -104,6 +105,11 @@ public class MCSdkConfig {
                         case CONFIG_PREFIX + "delay_registration_until_contact_key_is_set":
                             builder.setDelayRegistrationUntilContactKeyIsSet(
                                 "true".equalsIgnoreCase(val));
+                            break;
+                        case CONFIG_PREFIX + "location":
+                            builder.setGeofencingEnabled("true".equalsIgnoreCase(val));
+                            break;
+                        default:
                             break;
                     }
                 }

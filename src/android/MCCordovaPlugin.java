@@ -23,6 +23,7 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 package com.salesforce.marketingcloud.cordova;
 
 import android.app.PendingIntent;
@@ -30,7 +31,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
 import android.util.Log;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
 
 import com.salesforce.marketingcloud.MCLogListener;
 import com.salesforce.marketingcloud.MarketingCloudSdk;
@@ -50,7 +55,9 @@ import org.json.JSONObject;
 import java.util.Collection;
 import java.util.Map;
 
-public class MCCordovaPlugin extends CordovaPlugin implements UrlHandler {
+public class MCCordovaPlugin extends CordovaPlugin implements UrlHandler, ActivityCompat.OnRequestPermissionsResultCallback {
+    private static final int PERMISSIONS_REQUEST_FINE_LOCATION = 1;
+
     static final String TAG = "~!MCCordova";
 
     private CallbackContext eventsChannel = null;
@@ -131,6 +138,8 @@ public class MCCordovaPlugin extends CordovaPlugin implements UrlHandler {
                         break;
                     case OPEN_DIRECT:
                         values.put("type", "openDirect");
+                        break;
+                    default:
                         break;
                 }
                 eventArgs.put("values", values);
@@ -267,6 +276,14 @@ public class MCCordovaPlugin extends CordovaPlugin implements UrlHandler {
                 return getContactKey();
             case "logSdkState":
                 return logSdkState();
+            case "enableGeofence":
+                return enableGeofence();
+            case "disableGeofence":
+                return disableGeofence();
+            case "getSDKState":
+                return getSDKState();
+            case "askForLocationPermissions":
+                return askForLocationPermissions();
             default:
                 return null;
         }
@@ -420,6 +437,68 @@ public class MCCordovaPlugin extends CordovaPlugin implements UrlHandler {
                 callbackContext.success();
             }
         };
+    }
+
+    private ActionHandler enableGeofence() {
+        return new ActionHandler() {
+            @Override
+            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+                sdk.getRegionMessageManager().enableGeofenceMessaging();
+                /*
+                 * if(android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M
+                 * ||cordova.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+                 * sdk.getRegionMessageManager().enableGeofenceMessaging(); } else {
+                 * cordova.requestPermission(thisObject, PERMISSIONS_REQUEST_FINE_LOCATION,
+                 * Manifest.permission.ACCESS_FINE_LOCATION); }
+                 */
+
+                callbackContext.success();
+            }
+        };
+    }
+
+    private ActionHandler disableGeofence() {
+        return new ActionHandler() {
+            @Override
+            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+                sdk.getRegionMessageManager().disableGeofenceMessaging();
+                callbackContext.success();
+            }
+        };
+    }
+
+    private ActionHandler getSDKState() {
+        return new ActionHandler() {
+            @Override
+            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+                callbackContext.success(sdk.getSdkState().toString());
+            }
+        };
+    }
+
+    private ActionHandler askForLocationPermissions() {
+        final MCCordovaPlugin thisObject = this;
+        return new ActionHandler() {
+            @Override
+            public void execute(MarketingCloudSdk sdk, JSONArray args, CallbackContext callbackContext) {
+                if (android.os.Build.VERSION.SDK_INT > android.os.Build.VERSION_CODES.M) {
+                    cordova.requestPermission(thisObject, PERMISSIONS_REQUEST_FINE_LOCATION,
+                            Manifest.permission.ACCESS_FINE_LOCATION);
+                }
+                callbackContext.success();
+            }
+        };
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        if (requestCode == PERMISSIONS_REQUEST_FINE_LOCATION) {
+            // Se activa geofence si el usuario ha aceptado el permiso
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                MarketingCloudSdk sdk = MarketingCloudSdk.getInstance();
+                sdk.getRegionMessageManager().enableGeofenceMessaging();
+            }
+        }
     }
 
     interface ActionHandler {

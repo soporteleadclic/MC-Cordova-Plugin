@@ -265,6 +265,46 @@ var MCCordovaPlugin = {
         onNotificationOpened = notificationOpenedListener;
         _exec(undefined, undefined, 'subscribe', ['notificationOpened']);
     },
+    enableGeofence: function(successCallback, errorCallback) {
+        argsCheck.checkArgs('FF', `${PLUGIN_NAME}.enableGeofence`, arguments);
+        _exec(successCallback, errorCallback, 'enableGeofence');
+    },
+    /**
+     * Enables geofence in the native Marketing Cloud SDK.
+     * @param  {function} [successCallback]
+     * @param  {function} [errorCallback]
+     */
+    disableGeofence: function(successCallback, errorCallback) {
+        argsCheck.checkArgs('FF', `${PLUGIN_NAME}.disableGeofence`, arguments);
+        _exec(successCallback, errorCallback, 'disableGeofence');
+    },
+    /**
+     * Asks for location permission
+     * @param  {function} [successCallback]
+     * @param  {function} [errorCallback]
+     */
+    askForLocationPermissions: function(successCallback, errorCallback) {
+        argsCheck.checkArgs('FF', `${PLUGIN_NAME}.askForLocationPermissions`, arguments);
+        _exec(successCallback, errorCallback, 'askForLocationPermissions');
+    },
+    /**
+     * Returns if the location is enabled or not
+     * @param  {function} [successCallback]
+     * @param  {function} [errorCallback]
+     */
+    isLocationEnabled: function(successCallback, errorCallback = undefined) {
+        argsCheck.checkArgs('fF', `${PLUGIN_NAME}.isLocationEnabled`, arguments);
+        _exec(successCallback, errorCallback, 'isLocationEnabled');
+    },
+    /**
+     * Returns the complete list of information that the SDK has and it’s current state
+     * @param  {function} [successCallback]
+     * @param  {function} [errorCallback]
+     */
+    getSDKState: function(successCallback, errorCallback) {
+        argsCheck.checkArgs('fF', `${PLUGIN_NAME}.getSDKState`, arguments);
+        _exec(successCallback, errorCallback, 'getSDKState');
+    },
 
     /**
      * @callback module:MCCordovaPlugin~notificationOpenedCallback
