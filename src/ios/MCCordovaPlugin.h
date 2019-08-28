@@ -55,6 +55,13 @@
 - (void)registerEventsChannel:(CDVInvokedUrlCommand *)command;
 - (void)subscribe:(CDVInvokedUrlCommand *)command;
 
+- (void)enableGeofence:(CDVInvokedUrlCommand *)command;
+- (void)disableGeofence:(CDVInvokedUrlCommand *)command;
+- (void) getSDKState:(CDVInvokedUrlCommand *)command;
+- (void)isLocationEnabled:(CDVInvokedUrlCommand *)command;
+- (void)isWatchingLocation:(CDVInvokedUrlCommand *)command;
+- (void)askForLocationPermissions:(CDVInvokedUrlCommand *)command;
+
 @property(nonatomic, copy) NSString *eventsCallbackId;
 @property(nonatomic, assign) BOOL notificationOpenedSubscribed;
 @property(nonatomic, strong) NSDictionary *cachedNotification;

@@ -26,6 +26,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 #import "MCCordovaPlugin.h"
+#import <CoreLocation/CoreLocation.h>
 
 @implementation MCCordovaPlugin
 
@@ -34,6 +35,8 @@ const int LOG_LENGTH = 800;
 @synthesize eventsCallbackId;
 @synthesize notificationOpenedSubscribed;
 @synthesize cachedNotification;
+
+static CLLocationManager *locationManager;
 
 + (NSMutableDictionary *_Nullable)dataForNotificationReceived:(NSNotification *)notification {
     NSMutableDictionary *notificationData = nil;
@@ -124,6 +127,7 @@ const int LOG_LENGTH = 800;
         os_log_error(OS_LOG_DEFAULT, "Failed to access the MarketingCloudSDK");
     } else {
         NSDictionary *pluginSettings = self.commandDelegate.settings;
+        locationManager = [[CLLocationManager alloc] init];
 
         MarketingCloudSDKConfigBuilder *configBuilder = [MarketingCloudSDKConfigBuilder new];
         [configBuilder
@@ -139,6 +143,9 @@ const int LOG_LENGTH = 800;
             boolValue];
         [configBuilder
             sfmc_setDelayRegistrationUntilContactKeyIsSet:@(delayRegistrationUntilContactKeyIsSet)];
+
+        BOOL location =  [[pluginSettings objectForKey:@"com.salesforce.marketingcloud.location"] boolValue];
+            [configBuilder sfmc_setLocationEnabled:[NSNumber numberWithBool:location]];
 
         NSString *tse = pluginSettings[@"com.salesforce.marketingcloud.tenant_specific_endpoint"];
         if (tse != nil) {
@@ -401,6 +408,55 @@ const int LOG_LENGTH = 800;
         [self sendNotificationEvent:self.cachedNotification];
         self.cachedNotification = nil;
     }
+}
+
+- (void)enableGeofence:(CDVInvokedUrlCommand *)command {
+    [[MarketingCloudSDK sharedInstance] sfmc_startWatchingLocation];
+    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
+                                callbackId:command.callbackId];
+}
+
+- (void)disableGeofence:(CDVInvokedUrlCommand *)command {
+    [[MarketingCloudSDK sharedInstance] sfmc_stopWatchingLocation];
+
+    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
+                                callbackId:command.callbackId];
+}
+
+- (void) getSDKState:(CDVInvokedUrlCommand *)command {
+    [self.commandDelegate runInBackground:^ {
+        NSString* SDKState = [[MarketingCloudSDK sharedInstance] sfmc_getSDKState];
+        
+        [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                             messageAsString:SDKState]
+                                callbackId:command.callbackId];
+    }];
+}
+
+- (void)isLocationEnabled:(CDVInvokedUrlCommand *)command {
+    BOOL enabled = [[MarketingCloudSDK sharedInstance] sfmc_locationEnabled];
+    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                         messageAsInt:(enabled) ? 1 : 0]
+                                callbackId:command.callbackId];
+}
+
+- (void)isWatchingLocation:(CDVInvokedUrlCommand *)command {
+    BOOL enabled = [[MarketingCloudSDK sharedInstance] sfmc_watchingLocation];
+    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                         messageAsInt:(enabled) ? 1 : 0]
+                                callbackId:command.callbackId];
+}
+
+- (void)askForLocationPermissions:(CDVInvokedUrlCommand *)command {
+    // Permission to access the location is requested
+    locationManager.delegate = self;
+    [locationManager requestAlwaysAuthorization];
+    if ([CLLocationManager authorizationStatus] == kCLAuthorizationStatusAuthorizedAlways) {
+        os_log_info(OS_LOG_DEFAULT, "Authorized for location always. Geofence notifications will work");
+    }
+
+    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK]
+                                callbackId:command.callbackId];
 }
 
 @end
